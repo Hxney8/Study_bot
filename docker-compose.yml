@@ -1,0 +1,48 @@
+services:
+  bot:
+    build: .
+    env_file: .env
+    networks:
+      - studybot-net
+    depends_on:
+      db:
+        condition: service_healthy
+    expose:
+      - "8080"
+
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: studybot
+      POSTGRES_USER: dbusername
+      POSTGRES_PASSWORD: dbpassword
+    command: postgres -c max_connections=200 -c shared_buffers=1GB
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dbusername -d studybot"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - studybot-net
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    networks:
+      - studybot-net
+    depends_on:
+      - bot
+
+volumes:
+  postgres_data:
+
+networks:
+  studybot-net:
+    driver: bridge
